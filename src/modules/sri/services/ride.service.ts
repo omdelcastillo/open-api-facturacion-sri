@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PdfService } from '../../pdf/pdf.service';
 import { TemplateService } from '../../template/template.service';
 import { SriRepositoryService } from './sri-repository.service';
+import { BarcodeService } from '../../pdf/barcode.service';
 import { TIPO_COMPROBANTE_DESCRIPCIONES } from '../constants';
 import { Ambiente, TipoEmision, TipoIdentificacion } from '../constants/sri.enums';
 
@@ -11,12 +12,13 @@ type AnyRecord = Record<string, any>;
 @Injectable()
 export class RideService {
   private readonly logger = new Logger(RideService.name);
-  private static readonly RIDE_TEMPLATE_ID = 'ride';
+  private static readonly RIDE_TEMPLATE_ID = 'factura';
 
   constructor(
     private readonly pdfService: PdfService,
     private readonly templateService: TemplateService,
     private readonly repository: SriRepositoryService,
+    private readonly barcodeService: BarcodeService,
   ) {}
 
   /**
@@ -52,6 +54,19 @@ export class RideService {
       pagos,
       infoAdicional,
     );
+
+    // Generar barcode Code 128 como PNG y embeber como base64 data URI
+    // para el tag <img src="{d.barcodeImage}"> en el template HTML
+    try {
+      const barcodePng = await this.barcodeService.generateCode128ForRide(
+        claveAcceso,
+      );
+      rideData.barcodeImage = `data:image/png;base64,${barcodePng.toString('base64')}`;
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo generar barcode image: ${(err as Error).message}`,
+      );
+    }
 
     const templatePath = this.templateService.findTemplate(
       RideService.RIDE_TEMPLATE_ID,
@@ -118,7 +133,28 @@ export class RideService {
     }
 
     return {
-      // Emisor
+      // ═══ Estructura anidada (template ODS: ride-factura-ods.ods) ═══
+      emisor: {
+        ruc: comprobante.ruc_emisor || '',
+        razonSocial: comprobante.razon_social_emisor || '',
+        dirMatriz: comprobante.direccion_matriz || '',
+      },
+      comprador: {
+        direccion: comprobante.receptor_direccion || '',
+        email: comprobante.receptor_email || '',
+        identificacion: comprobante.identificacion_comprador || '',
+        razonSocialComprador: comprobante.razon_social_comprador || '',
+      },
+      infoTributaria: {
+        claveAcceso: comprobante.clave_acceso || '',
+        estab: comprobante.establecimiento || '',
+        ptoEmi: comprobante.punto_emision || '',
+        secuencial: comprobante.secuencial || '',
+      },
+      fechaAutorizacion: this.formatFecha(comprobante.fecha_autorizacion),
+      fechaEmision: this.formatFecha(comprobante.fecha_emision),
+
+      // ═══ Estructura plana (template HTML: ride.html) ═══
       rucEmisor: comprobante.ruc_emisor || '',
       razonSocialEmisor: comprobante.razon_social_emisor || '',
       nombreComercial: comprobante.nombre_comercial || '',
@@ -129,7 +165,6 @@ export class RideService {
       agenteRetencion: comprobante.agente_retencion === true || comprobante.agente_retencion === 'true' ? 'SI' : '',
       contribuyenteRimpe: comprobante.contribuyente_rimpe === true || comprobante.contribuyente_rimpe === 'true' ? 'SI' : '',
 
-      // Comprobante
       tipoComprobanteDescripcion: tipoCompDesc,
       ambienteDescripcion: ambienteDesc,
       tipoEmisionDescripcion: tipoEmisionDesc,
@@ -145,7 +180,6 @@ export class RideService {
         comprobante.fecha_autorizacion,
       ),
 
-      // Comprador
       razonSocialComprador: comprobante.razon_social_comprador || '',
       identificacionComprador: comprobante.identificacion_comprador || '',
       tipoIdentificacionComprador: this.getTipoIdentificacionDesc(comprobante.receptor_tipo_identificacion),
@@ -153,7 +187,6 @@ export class RideService {
       receptorEmail: comprobante.receptor_email || '',
       receptorTelefono: comprobante.receptor_telefono || '',
 
-      // Totales
       subtotalFormato: this.formatMoneda(subtotal, moneda),
       totalDescuentoFormato: this.formatMoneda(totalDescuento, moneda),
       totalImpuestosFormato: this.formatMoneda(totalImpuestos, moneda),
@@ -162,10 +195,12 @@ export class RideService {
       moneda,
 
       // Detalles (items) con impuestos embebidos
+      // Incluye tanto campos "sin Formato" (para ODS) como "con Formato" (para HTML)
       detalles: detalles.map((d) => ({
         codigoPrincipal: d.codigo_principal || '',
         codigoAuxiliar: d.codigo_auxiliar || '',
         descripcion: d.descripcion || '',
+        cantidad: this.formatNumero(parseFloat(d.cantidad) || 0),
         cantidadFormato: this.formatNumero(parseFloat(d.cantidad) || 0),
         precioUnitarioFormato: this.formatMoneda(
           parseFloat(d.precio_unitario) || 0,
@@ -182,7 +217,6 @@ export class RideService {
         impuestos: impuestosByDetalle[d.id] || [],
       })),
 
-      // Totales agrupados (impuestos)
       totales: totales.map((t) => ({
         codigo: t.codigo || '',
         descripcion: this.getImpuestoDescripcion(t.codigo),
@@ -195,7 +229,6 @@ export class RideService {
         valorFormato: this.formatMoneda(parseFloat(t.valor) || 0, moneda),
       })),
 
-      // Pagos
       pagos: pagos.map((p) => ({
         formaPago: p.forma_pago || '',
         formaPagoDescripcion: this.getFormaPagoDescripcion(p.forma_pago),
@@ -204,7 +237,6 @@ export class RideService {
         unidadTiempo: p.unidad_tiempo || '',
       })),
 
-      // Info adicional
       infoAdicional: (infoAdicional || []).map((ia) => ({
         nombre: ia.nombre || '',
         valor: ia.valor || '',

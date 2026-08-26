@@ -4,7 +4,7 @@
 # Usage: docker compose up -d --build
 #
 # This file includes:
-#  - PostgreSQL 14 (database)
+#  - PostgreSQL 17 (database)
 #  - Redis 7 (cache + BullMQ)
 #  - Open API Facturación SRI (NestJS)
 #
@@ -16,12 +16,15 @@ services:
     image: carbone/carbone-ee:latest
     container_name: open-api-carbone
     restart: unless-stopped
+    entrypoint: ["sh", "-c", "fc-cache -f && exec ./docker-entrypoint.sh \"$@\"", "sh"]
+    command: ["webserver"]
     environment:
       - CARBONE_EE_STUDIO=true
     ports:
       - '${CARBONE_PORT:-4000}:4000'
     volumes:
-      - ${HOST_TEMPLATES_PATH:-../templates}:/app/template
+      - ${HOST_TEMPLATES_PATH:-./templates}:/app/template
+      - ./fonts-libre-barcode:/usr/share/fonts/truetype/libre-barcode:ro
     healthcheck:
       test: ['CMD-SHELL', 'bash -c "echo > /dev/tcp/localhost/4000"']
       interval: 30s
@@ -35,6 +38,37 @@ services:
         max-file: '2'
     networks:
       - open-api-network
+      
+  # ─── Postgres Base de Datos ───
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: open-api-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+      POSTGRES_DB: ${DB_NAME:-db_sri}
+    ports:
+      - '${DB_PORT:-5432}:5432'   # (ver pregunta abajo)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-init: orden alfanumérico en /docker-entrypoint-initdb.d/
+      - ./database/01-init-extensions.sql:/docker-entrypoint-initdb.d/01-init-extensions.sql:ro
+      - ./database/init.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-db_sri}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: 'json-file'
+      options: { max-size: '5m', max-file: '2' }
+    networks:
+      - open-api-network
+
+
 
   # ─── Redis (BullMQ + Cache) ───
   redis:
@@ -63,9 +97,6 @@ services:
       options:
         max-size: '5m'
         max-file: '2'
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - open-api-network
 
@@ -86,6 +117,7 @@ services:
       DB_NAME: ${DB_NAME:-db_sri}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres123}
+      DB_SSL: 'false'
 
       # Redis
       REDIS_HOST: redis
@@ -140,11 +172,11 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
+    external: true
+    name: open-api-postgres-data
   redis_data:
     driver: local
 
 networks:
   open-api-network:
     driver: bridge
-

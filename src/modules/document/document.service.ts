@@ -146,6 +146,7 @@ export class DocumentService {
       isDebugActive: (this.carboneRenderOptions as any)?.isDebugActive || false,
       convertTo: format, // Use specified format
       lang: (this.carboneRenderOptions as any)?.lang || 'en-US',
+      converter: (this.carboneRenderOptions as any)?.converter || 'C',
     };
 
     const renderResponse = await axios.post(

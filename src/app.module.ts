@@ -36,6 +36,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { PuntosEmisionModule } from './modules/puntos-emision/puntos-emision.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { CatalogosModule } from './modules/catalogos/catalogos.module';
+import { EmailModule } from './modules/email/email.module';
 
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
@@ -118,6 +119,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     PuntosEmisionModule,
     RealtimeModule,
     CatalogosModule,
+    EmailModule,
   ],
   providers: [
     // Guard JWT global — protege todos los endpoints excepto @Public()

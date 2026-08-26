@@ -39,6 +39,7 @@ import {
 import { DatabaseService } from '../../database';
 import { EncryptionService } from '../../common/services/encryption.service';
 import { XmlSignerService } from '../sri/services/xml-signer.service';
+import { SriRepositoryService } from '../sri/services/sri-repository.service';
 import { EmisoresService } from '../emisores/emisores.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload, UserRole } from '../auth/dto/auth.dto';
@@ -54,6 +55,7 @@ export class CertificateController {
     private readonly db: DatabaseService,
     private readonly encryptionService: EncryptionService,
     private readonly xmlSignerService: XmlSignerService,
+    private readonly sriRepositoryService: SriRepositoryService,
     private readonly emisoresService: EmisoresService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
@@ -170,6 +172,13 @@ export class CertificateController {
     this.logger.log(
       `Certificado ${fileName} eliminado. Emisores actualizados: ${emisoresLimpiados}`,
     );
+
+    // Invalidar caché Redis del emisor (y del signer) para cada emisor
+    // cuyo certificado fue desvinculado, de modo que findEmisorByRuc lea de BD.
+    for (const row of cleanResult.rows as { id: string; ruc: string }[]) {
+      this.xmlSignerService.clearEmisorCache(row.ruc);
+      await this.sriRepositoryService.invalidateEmisorCache(row.ruc);
+    }
 
     this.eventEmitter.emit('certificado.eliminado', {
       fileName,
@@ -418,7 +427,10 @@ export class CertificateController {
       // FIX P4: Invalidar caché del certificado en XmlSignerService
       // para forzar la carga del nuevo P12 en la próxima firma
       this.xmlSignerService.clearEmisorCache(ruc);
-      this.logger.log(`Caché de certificado invalidado para RUC: ${ruc}`);
+      // Invalidar también el cache del emisor en SriRepositoryService (Redis),
+      // para que findEmisorByRuc lea de BD con el certificado recién vinculado.
+      await this.sriRepositoryService.invalidateEmisorCache(ruc);
+      this.logger.log(`Caché de certificado y emisor invalidado para RUC: ${ruc}`);
 
       return { success: true, message: 'Certificado vinculado correctamente' };
     } catch (error) {

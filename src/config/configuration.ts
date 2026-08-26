@@ -26,6 +26,7 @@ export default () => ({
     isDebugActive: optionalEnv('CARBONE_DEBUG', 'false') === 'true',
     convertTo: optionalEnv('CARBONE_CONVERT_TO', 'pdf'),
     lang: optionalEnv('CARBONE_LANG', 'en-US'),
+    converter: optionalEnv('CARBONE_CONVERTER', 'C'),
   },
 
   // Signature Configuration (optional with sensible defaults)
@@ -135,6 +136,14 @@ export default () => ({
     emisorTtlMs: parseInt(optionalEnv('CACHE_EMISOR_TTL_MS', '300000'), 10),
   },
 
+  // Email Configuration (Resend API)
+  email: {
+    resendApiKey: optionalEnv('RESEND_API_KEY', ''),
+    from: optionalEnv('EMAIL_FROM', 'no-reply@facturacion-sri.com'),
+    fromName: optionalEnv('EMAIL_FROM_NAME', 'Open API Facturación SRI'),
+    enabled: optionalEnv('EMAIL_ENABLED', 'true') === 'true',
+  },
+
   // Queue options — BullMQ
   queues: {
     sriEmision: {
@@ -148,6 +157,12 @@ export default () => ({
       backoffDelayMs: parseInt(optionalEnv('QUEUE_WEBHOOK_BACKOFF_MS', '3000'), 10),
       removeOnComplete: parseInt(optionalEnv('QUEUE_WEBHOOK_KEEP_COMPLETED', '500'), 10),
       removeOnFail: parseInt(optionalEnv('QUEUE_WEBHOOK_KEEP_FAILED', '2000'), 10),
+    },
+    emailDispatch: {
+      attempts: parseInt(optionalEnv('QUEUE_EMAIL_ATTEMPTS', '3'), 10),
+      backoffDelayMs: parseInt(optionalEnv('QUEUE_EMAIL_BACKOFF_MS', '5000'), 10),
+      removeOnComplete: parseInt(optionalEnv('QUEUE_EMAIL_KEEP_COMPLETED', '500'), 10),
+      removeOnFail: parseInt(optionalEnv('QUEUE_EMAIL_KEEP_FAILED', '2000'), 10),
     },
   },
 });
@@ -220,6 +235,12 @@ export interface AppConfig {
   cache: {
     emisorTtlMs: number;
   };
+  email: {
+    resendApiKey: string;
+    from: string;
+    fromName: string;
+    enabled: boolean;
+  };
   queues: {
     sriEmision: {
       attempts: number;
@@ -228,6 +249,12 @@ export interface AppConfig {
       removeOnFail: number;
     };
     webhookDispatch: {
+      attempts: number;
+      backoffDelayMs: number;
+      removeOnComplete: number;
+      removeOnFail: number;
+    };
+    emailDispatch: {
       attempts: number;
       backoffDelayMs: number;
       removeOnComplete: number;

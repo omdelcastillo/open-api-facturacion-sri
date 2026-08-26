@@ -11,6 +11,7 @@ import {
   UploadedFile,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -35,6 +36,7 @@ import {
 } from '@nestjs/swagger';
 import { PdfService } from './pdf.service';
 import { TemplateService } from '../template/template.service';
+import { BarcodeService } from './barcode.service';
 import {
   GeneratePdfDto,
   GeneratePdfWithImagesDto,
@@ -44,18 +46,45 @@ import {
   STORAGE_PATHS,
   sanitizeFilename,
 } from '../../common/utils/storage-paths';
+// PDFDocument y rgb ahora importados en BarcodeService para embedBarcodeInPdf
 
 @ApiTags('Generate PDF')
 @Controller('generate-pdf')
 export class PdfController {
+  private readonly logger = new Logger(PdfController.name);
   private readonly publicUrl: string;
 
   constructor(
     private readonly pdfService: PdfService,
     private readonly templateService: TemplateService,
     private readonly configService: ConfigService,
+    private readonly barcodeService: BarcodeService,
   ) {
     this.publicUrl = this.configService.get<string>('publicUrl')!;
+  }
+
+/**
+   * Post-procesa el PDF generado por Carbone para embeber el barcode
+   * Code 128 de la clave de acceso como imagen PNG (bwip-js).
+   * Delega en BarcodeService.embedBarcodeInPdf.
+   *
+   * Si el JSON no tiene infoTributaria.claveAcceso, no hace nada.
+   */
+  private async embedBarcodeInPdf(
+    pdfBuffer: Buffer,
+    jsonData: Record<string, unknown>,
+  ): Promise<Buffer> {
+    const clave =
+      (jsonData as any)?.infoTributaria?.claveAcceso &&
+      typeof (jsonData as any).infoTributaria.claveAcceso === 'string'
+        ? (jsonData as any).infoTributaria.claveAcceso
+        : null;
+
+    if (!clave) {
+      return pdfBuffer;
+    }
+
+    return this.barcodeService.embedBarcodeInPdf(pdfBuffer, clave);
   }
 
   /**
@@ -88,9 +117,15 @@ export class PdfController {
       templatePath,
     );
 
+    // Post-procesar: embeber barcode Code 128 como imagen PNG
+    const finalPdf = await this.embedBarcodeInPdf(
+      pdfBuffer,
+      jsonData as Record<string, unknown>,
+    );
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=documento.pdf');
-    return res.send(pdfBuffer);
+    return res.send(finalPdf);
   }
 
   /**
@@ -121,12 +156,18 @@ export class PdfController {
       templatePath,
     );
 
+    // Post-procesar: embeber barcode Code 128 como imagen PNG
+    const finalPdf = await this.embedBarcodeInPdf(
+      pdfBuffer,
+      jsonData as Record<string, unknown>,
+    );
+
     // Generate unique filename
     const fileName = `documento_${Date.now()}.pdf`;
     const filePath = join(STORAGE_PATHS.pdfsOthers, fileName);
 
     // Save the PDF
-    writeFileSync(filePath, pdfBuffer);
+    writeFileSync(filePath, finalPdf);
 
     // Build file URL
     const fileUrl = `${this.publicUrl}/pdfs/others/${fileName}`;
@@ -137,7 +178,7 @@ export class PdfController {
         message: 'PDF generado correctamente',
         fileName: fileName,
         fileUrl: fileUrl,
-        fileSize: Buffer.byteLength(pdfBuffer),
+        fileSize: Buffer.byteLength(finalPdf),
         templateUsed: basename(templatePath),
       },
     };
@@ -179,12 +220,18 @@ export class PdfController {
       images,
     );
 
+    // Post-procesar: embeber barcode Code 128 como imagen PNG
+    const finalPdf = await this.embedBarcodeInPdf(
+      pdfBuffer,
+      jsonData as Record<string, unknown>,
+    );
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
       'attachment; filename=documento_con_imagenes.pdf',
     );
-    return res.send(pdfBuffer);
+    return res.send(finalPdf);
   }
 
   /**
@@ -224,12 +271,18 @@ export class PdfController {
       images,
     );
 
+    // Post-procesar: embeber barcode Code 128 como imagen PNG
+    const finalPdf = await this.embedBarcodeInPdf(
+      pdfBuffer,
+      jsonData as Record<string, unknown>,
+    );
+
     // Generate unique filename
     const fileName = `documento_con_imagenes_${Date.now()}.pdf`;
     const filePath = join(STORAGE_PATHS.pdfsOthers, fileName);
 
     // Save the PDF
-    writeFileSync(filePath, pdfBuffer);
+    writeFileSync(filePath, finalPdf);
 
     // Build file URL
     const fileUrl = `${this.publicUrl}/pdfs/others/${fileName}`;
@@ -240,7 +293,7 @@ export class PdfController {
         message: 'PDF con imágenes generado correctamente',
         fileName: fileName,
         fileUrl: fileUrl,
-        fileSize: Buffer.byteLength(pdfBuffer),
+        fileSize: Buffer.byteLength(finalPdf),
         templateUsed: basename(templatePath),
         imagesAdded: images ? images.length : 0,
       },

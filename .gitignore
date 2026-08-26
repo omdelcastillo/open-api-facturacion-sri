@@ -79,3 +79,21 @@ skills-lock.json
 .jcbv-memory
 .agent-skills
 AGENTS.md
+
+
+
+# --- Archivos de configuración local y respaldos ---
+.env.docker
+.env.example
+docker-compose.prod.yml
+docker-compose.yml
+
+# --- Carpetas de datos locales (Bases de datos y Certificados) ---
+database/
+certs/
+certs_sri/
+
+# --- Documentos generados por el sistema de facturación ---
+pdfs/
+xmls/
+templates/

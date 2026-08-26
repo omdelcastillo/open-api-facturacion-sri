@@ -57,6 +57,25 @@ export class XmlStorageService implements OnModuleInit {
     tipo: 'sin_firma' | 'firmado' | 'autorizado',
     xmlContent: string,
   ): string {
+    // FIX: Validación defensiva contra bug de la librería soap@1.9.1 que
+    // parsea CDATA con <?xml como objeto JS en lugar de string.
+    if (typeof xmlContent !== 'string') {
+      const actualType = xmlContent === null ? 'null' : typeof xmlContent;
+      const errorMsg =
+        `saveXml(${tipo}): se esperaba string, se recibió ${actualType}. ` +
+        `Esto indica que el parser SOAP no extrajo correctamente el campo ` +
+        `CDATA del comprobante ${claveAcceso}.`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    if (xmlContent.length === 0) {
+      const errorMsg =
+        `saveXml(${tipo}): el contenido XML está vacío para comprobante ${claveAcceso}.`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
     // Map tipo to subdirectory name
     const subdirMap: Record<string, string> = {
       sin_firma: 'sin_firmar',

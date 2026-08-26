@@ -68,7 +68,18 @@ export class SriSoapClient {
         `Respuesta del SRI - Autorizaciones: ${response?.numeroComprobantes || 0}`,
       );
 
-      return this.parseAutorizacionResponse(response);
+      const parsed = this.parseAutorizacionResponse(response);
+
+      // FIX: La librería soap@1.9.1 puede parsear el campo <comprobante>
+      // (que viene en CDATA con <?xml) como objeto JS en vez de string.
+      // Extraemos el XML crudo de la respuesta para preservar la firma del SRI.
+      const rawXml =
+        (client as any)?.lastResponse ||
+        (client as any)?.lastRequest ||
+        '';
+      this.replaceComprobanteIfParsed(parsed, rawXml, 'autorizarComprobante');
+
+      return parsed;
     } catch (error: unknown) {
       this.logger.error(
         `Error al consultar autorización: ${(error as Error).message}`,
@@ -245,6 +256,83 @@ export class SriSoapClient {
       numeroComprobantes: (response?.numeroComprobantes as string) || '0',
       autorizaciones: response?.autorizaciones as SriAutorizacionResponse['autorizaciones'],
     };
+  }
+
+  /**
+   * Extrae el contenido CDATA del campo <comprobante> de la respuesta cruda XML
+   * del SRI. Es necesario porque la librería soap@1.9.1 parsea CDATA cuyo
+   * contenido arranca con `<?xml` como objeto JS en lugar de string (bug
+   * conocido), perdiendo la firma autorizada del SRI.
+   *
+   * @param rawXml XML crudo de la respuesta SOAP del SRI
+   * @returns Contenido del CDATA como string, o undefined si no se encuentra
+   */
+  private extractComprobanteFromRawResponse(rawXml: string): string | undefined {
+    if (!rawXml || typeof rawXml !== 'string') return undefined;
+    const match = rawXml.match(
+      /<comprobante[^>]*>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/comprobante>/i,
+    );
+    if (match && match[1]) {
+      const content = match[1].trim();
+      if (content.startsWith('<?xml') || content.startsWith('<')) {
+        return content;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Reemplaza el campo `comprobante` de cada autorización por el string crudo
+   * extraído del CDATA cuando la librería soap lo entregó como objeto en vez
+   * de string. Logging defensivo para auditoría.
+   */
+  private replaceComprobanteIfParsed(
+    parsed: SriAutorizacionResponse,
+    rawXml: string,
+    context: string,
+  ): void {
+    if (!parsed.autorizaciones?.autorizacion) return;
+
+    const auths = Array.isArray(parsed.autorizaciones.autorizacion)
+      ? parsed.autorizaciones.autorizacion
+      : [parsed.autorizaciones.autorizacion];
+
+    // Log siempre el tipo del campo para diagnóstico
+    const rawComprobante = rawXml
+      ? this.extractComprobanteFromRawResponse(rawXml)
+      : undefined;
+
+    let replacements = 0;
+    for (const auth of auths) {
+      if (!auth) continue;
+      const tipo = typeof auth.comprobante;
+      const tamano = auth.comprobante == null
+        ? 'null'
+        : tipo === 'string'
+          ? (auth.comprobante as string).length + ' chars'
+          : 'N/A';
+      this.logger.log(
+        `[${context}] auth.comprobante tipo=${tipo} tamaño=${tamano} rawXmlLen=${rawXml.length} rawComprobanteExtraido=${rawComprobante ? rawComprobante.length + ' chars' : 'NO'}`,
+      );
+      if (auth && typeof auth.comprobante !== 'string') {
+        if (rawComprobante) {
+          this.logger.log(
+            `[${context}] auth.comprobante reemplazado por XML crudo del CDATA (${rawComprobante.length} chars)`,
+          );
+          (auth as any).comprobante = rawComprobante;
+          replacements++;
+        } else {
+          this.logger.warn(
+            `[${context}] auth.comprobante es ${tipo} pero no se pudo extraer CDATA del XML crudo`,
+          );
+        }
+      }
+    }
+    if (replacements === 0 && rawComprobante) {
+      this.logger.debug(
+        `[${context}] sin reemplazos — auth.comprobante ya era string`,
+      );
+    }
   }
 
   private extractMensajes(response: SriRecepcionResponse): SriMensaje[] {

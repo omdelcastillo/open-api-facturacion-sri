@@ -90,7 +90,13 @@ export class PdfService {
       `${this.carboneApi}/render/${templateId}`,
       {
         data: jsonData,
-        ...this.carboneRenderOptions,
+        complement: this.carboneRenderOptions.complement || {},
+        enum: this.carboneRenderOptions.enum || {},
+        translations: this.carboneRenderOptions.translations || {},
+        isDebugActive: this.carboneRenderOptions.isDebugActive || false,
+        convertTo: this.carboneRenderOptions.convertTo || 'pdf',
+        lang: this.carboneRenderOptions.lang || 'en-US',
+        converter: this.carboneRenderOptions.converter || 'C',
       },
     );
 
@@ -100,30 +106,52 @@ export class PdfService {
 
     const renderId = renderResponse.data.data.renderId;
 
-    // 3. Wait and check status
+    // 3. Wait for render to complete before downloading.
+    // Carbone's POST /render is async — the renderId is returned immediately
+    // but the actual PDF rendering may still be in progress.
+    // GET /status checks server health, NOT render completion.
+    // Solution: poll the render download endpoint with retry until we get a valid PDF.
     let attempts = 0;
     const maxAttempts = this.pdfRenderConfig.maxAttempts;
+    const retryDelay = this.pdfRenderConfig.retryDelay;
 
     while (attempts < maxAttempts) {
-      const statusResponse = await axios.get(`${this.carboneApi}/status`);
+      // Wait before first attempt to give Carbone time to render
+      if (attempts > 0) {
+        this.logger.debug(
+          `Render ${renderId} not ready, retrying in ${retryDelay}ms (attempt ${attempts + 1}/${maxAttempts})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      } else {
+        // Initial delay to allow render to start
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
 
-      if (statusResponse.data.success || statusResponse.data.ready) {
-        // 4. Download the PDF
+      try {
         const pdfResponse = await axios.get(
           `${this.carboneApi}/render/${renderId}`,
-          { responseType: 'arraybuffer' },
+          { responseType: 'arraybuffer', timeout: 30000 },
         );
 
-        return Buffer.from(pdfResponse.data);
+        // Verify we got a valid PDF (starts with %PDF)
+        const pdfBuffer = Buffer.from(pdfResponse.data);
+        if (pdfBuffer.length > 1000 && pdfBuffer.slice(0, 4).toString() === '%PDF') {
+          return pdfBuffer;
+        }
+
+        this.logger.debug(
+          `Received invalid/small PDF (${pdfBuffer.length} bytes), retrying...`,
+        );
+      } catch (downloadErr) {
+        this.logger.debug(
+          `Render not ready yet: ${(downloadErr as Error).message}`,
+        );
       }
 
       attempts++;
-      await new Promise((resolve) =>
-        setTimeout(resolve, this.pdfRenderConfig.retryDelay),
-      );
     }
 
-    throw new Error('Tiempo de espera agotado');
+    throw new Error('Tiempo de espera agotado: Carbone no completó el render del PDF');
   }
 
   /**

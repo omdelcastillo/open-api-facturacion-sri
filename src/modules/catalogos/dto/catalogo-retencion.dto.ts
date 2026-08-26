@@ -19,7 +19,7 @@ export enum TipoRetencion {
   ISD = 'ISD',
 }
 
-export class CreateRetencionDto {
+export class CreateCatalogoRetencionDto {
   @ApiProperty({ description: 'Tipo de retención', enum: TipoRetencion })
   @IsEnum(TipoRetencion, { message: `tipo debe ser uno de: ${Object.values(TipoRetencion).join(', ')}` })
   tipo: TipoRetencion;
@@ -59,7 +59,7 @@ export class CreateRetencionDto {
   activo?: boolean;
 }
 
-export class UpdateRetencionDto {
+export class UpdateCatalogoRetencionDto {
   @ApiPropertyOptional({ description: 'Descripción de la retención' })
   @IsOptional()
   @IsString()
@@ -90,7 +90,7 @@ export class UpdateRetencionDto {
   activo?: boolean;
 }
 
-export class RetencionResponseDto {
+export class CatalogoRetencionResponseDto {
   @ApiProperty()
   id: string;
 

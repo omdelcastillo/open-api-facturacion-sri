@@ -162,6 +162,18 @@ export class SriRepositoryService {
     return emisor;
   }
 
+  /**
+   * Invalida el cache Redis del emisor (clave `emisor:ruc:${ruc}`).
+   * Debe invocarse cuando los datos del emisor cambian en BD, por ejemplo
+   * al vincular o desvincular un certificado digital. Sin esto, los servicios
+   * que usan findEmisorByRuc verían datos stale durante el TTL (5 min).
+   */
+  async invalidateEmisorCache(ruc: string): Promise<void> {
+    const cacheKey = `emisor:ruc:${ruc}`;
+    await this.cacheManager.del(cacheKey);
+    this.logger.debug(`Cache de emisor invalidada para RUC: ${ruc}`);
+  }
+
   async findPuntoEmision(
     emisorId: string,
     establecimiento: string,

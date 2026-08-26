@@ -69,6 +69,28 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         },
       }),
     }),
+
+    // Cola de email dispatch — envío de RIDE por email tras autorización SRI
+    BullModule.registerQueueAsync({
+      name: 'email-dispatch',
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        defaultJobOptions: {
+          attempts: configService.getOrThrow<number>('queues.emailDispatch.attempts'),
+          backoff: {
+            type: 'exponential',
+            delay: configService.getOrThrow<number>('queues.emailDispatch.backoffDelayMs'),
+          },
+          removeOnComplete: {
+            count: configService.getOrThrow<number>('queues.emailDispatch.removeOnComplete'),
+          },
+          removeOnFail: {
+            count: configService.getOrThrow<number>('queues.emailDispatch.removeOnFail'),
+          },
+        },
+      }),
+    }),
   ],
   exports: [BullModule],
 })

@@ -65,6 +65,7 @@
     "axios": "^1.15.2",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.76.4",
+    "bwip-js": "^4.6.0",
     "cache-manager": "^7.2.8",
     "cache-manager-ioredis-yet": "^2.1.2",
     "class-transformer": "^0.5.1",

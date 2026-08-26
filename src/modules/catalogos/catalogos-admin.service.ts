@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { CatalogoValidatorService } from '../sri/services/catalogo-validator.service';
-import type { CreateRetencionDto, UpdateRetencionDto } from './dto/catalogo-retencion.dto';
+import type { CreateCatalogoRetencionDto, UpdateCatalogoRetencionDto } from './dto/catalogo-retencion.dto';
 
 @Injectable()
 export class CatalogosAdminService {
@@ -32,7 +32,7 @@ export class CatalogosAdminService {
     return this.mapRow(result.rows[0]);
   }
 
-  async createRetencion(dto: CreateRetencionDto): Promise<any> {
+  async createRetencion(dto: CreateCatalogoRetencionDto): Promise<any> {
     const existing = await this.db.query<any>(
       `SELECT id FROM catalogo_retenciones WHERE tipo = $1 AND codigo = $2`,
       [dto.tipo, dto.codigo],
@@ -62,7 +62,7 @@ export class CatalogosAdminService {
     return this.mapRow(result.rows[0]);
   }
 
-  async updateRetencion(id: string, dto: UpdateRetencionDto): Promise<any> {
+  async updateRetencion(id: string, dto: UpdateCatalogoRetencionDto): Promise<any> {
     const exists = await this.db.query<any>(`SELECT id FROM catalogo_retenciones WHERE id = $1`, [id]);
     if (exists.rows.length === 0) {
       throw new NotFoundException(`Retención con id ${id} no encontrada`);
