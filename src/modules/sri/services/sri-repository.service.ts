@@ -301,6 +301,25 @@ export class SriRepositoryService {
     );
   }
 
+  async updateComprobanteByClaveAcceso(
+    claveAcceso: string,
+    data: Partial<ComprobanteRecord>,
+  ): Promise<ComprobanteRecord | null> {
+    const keys = Object.keys(data).filter((k) => data[k] !== undefined);
+    for (const k of keys) {
+      if (!SriRepositoryService.SAFE_IDENTIFIER.test(k)) {
+        throw new Error(`Nombre de columna no válido: "${k}"`);
+      }
+    }
+    const values = keys.map((k) => data[k]);
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const result = await this.db.query(
+      `UPDATE comprobantes SET ${setClause}, updated_at = NOW() WHERE clave_acceso = $${keys.length + 1} RETURNING *`,
+      [...values, claveAcceso],
+    );
+    return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
   // ==========================================
   // DETALLES METHODS
   // ==========================================

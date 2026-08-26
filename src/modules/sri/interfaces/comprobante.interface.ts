@@ -58,6 +58,7 @@ export interface InfoFactura {
   gastosTransporteOtros?: number;
   importeTotal: number;
   moneda?: string;
+  placa?: string;
   pagos: Pago[];
   valorRetIva?: number;
   valorRetRenta?: number;

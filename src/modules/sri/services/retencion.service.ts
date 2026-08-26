@@ -113,7 +113,7 @@ export class RetencionService {
 
       this.logger.log(`Clave de acceso RET generada: ${claveAcceso}`);
 
-      const retencion = this.buildRetencionFromDto(
+      const retencion = await this.buildRetencionFromDto(
         dto,
         claveAcceso,
         secuencial,
@@ -293,12 +293,12 @@ export class RetencionService {
           client,
         );
 
-        // 4. Create info adicional (from DTO + SRI messages if rejected)
+        // 4. Create info adicional (from comprobante + SRI messages if rejected)
         const infoAdicionalRecords: { comprobante_id: string; nombre: string; valor: string }[] = [];
 
-        if (dto.infoAdicional && dto.infoAdicional.length > 0) {
+        if (retencion.infoAdicional && retencion.infoAdicional.length > 0) {
           infoAdicionalRecords.push(
-            ...dto.infoAdicional.map((info) => ({
+            ...retencion.infoAdicional.map((info) => ({
               comprobante_id: comprobante.id!,
               nombre: info.nombre,
               valor: info.valor,
@@ -348,13 +348,13 @@ export class RetencionService {
   /**
    * Construye objeto Retencion desde el DTO
    */
-  private buildRetencionFromDto(
+  private async buildRetencionFromDto(
     dto: CreateRetencionDto,
     claveAcceso: string,
     secuencial: string,
     ambiente: Ambiente,
     tipoEmision: TipoEmision,
-  ): Retencion {
+  ): Promise<Retencion> {
     const infoTributaria: InfoTributaria = {
       ambiente,
       tipoEmision,
@@ -430,8 +430,11 @@ export class RetencionService {
       infoAdicional.push(...dto.infoAdicional);
     }
 
-    if (infoAdicional.length > 0) {
-      retencion.infoAdicional = infoAdicional;
+    // Resolución NAC-DGERCGC26-00000027: RUC del proveedor del sistema
+    const infoAdicionalFinal = await this.base.injectProveedorRucInfoAdicional(infoAdicional);
+
+    if (infoAdicionalFinal.length > 0) {
+      retencion.infoAdicional = infoAdicionalFinal;
     }
 
     return retencion;

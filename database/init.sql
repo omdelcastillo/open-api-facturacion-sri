@@ -768,6 +768,54 @@ COMMENT ON TABLE public.webhook_logs IS 'Logs de ejecución de webhooks';
 
 
 --
+-- Name: anulacion_solicitudes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.anulacion_solicitudes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    comprobante_clave_acceso character varying(49) NOT NULL,
+    tipo_comprobante character varying(2) NOT NULL,
+    emisor_ruc character varying(13) NOT NULL,
+    receptor_identificacion character varying(20) NOT NULL,
+    estado character varying(20) DEFAULT 'PENDIENTE'::character varying NOT NULL,
+    motivo_solicitud text,
+    respuesta_motivo text,
+    respondido_at timestamp with time zone,
+    creado_at timestamp with time zone DEFAULT now(),
+    actualizado_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE anulacion_solicitudes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.anulacion_solicitudes IS 'Solicitudes de anulación con aceptación del receptor (NC, ND, Retenciones) per Resolución NAC-DGERCGC25-00000014';
+
+
+--
+-- Name: CONSTRAINT anulacion_solicitudes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.anulacion_solicitudes
+    ADD CONSTRAINT anulacion_solicitudes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: INDEX idx_anulacion_solicitudes_clave; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_anulacion_solicitudes_clave ON public.anulacion_solicitudes USING btree (comprobante_clave_acceso);
+
+
+--
+-- Name: INDEX idx_anulacion_solicitudes_estado; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_anulacion_solicitudes_estado ON public.anulacion_solicitudes USING btree (estado);
+
+
+--
 -- Data for Name: auditoria; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1013,6 +1061,7 @@ INSERT INTO public.sistema_config VALUES ('2a144540-4ce1-444e-b7ee-54c0a1463a52'
 INSERT INTO public.sistema_config VALUES ('9be629a1-19ae-443d-9573-d359328e9143', 'SRI_RETRY_DELAY_MS', '2000', 'Retraso entre reintentos en milisegundos', '2026-04-26 18:44:54.01142+00', '2026-04-26 18:44:54.01142+00');
 INSERT INTO public.sistema_config VALUES ('f05b10fa-8574-431c-b9bf-84f4d60be68f', 'CACHE_EMISOR_TTL_MS', '3600000', 'TTL de la caché de emisores (1 hora)', '2026-04-26 18:44:54.01142+00', '2026-04-26 18:44:54.01142+00');
 INSERT INTO public.sistema_config VALUES ('746120e5-7130-4cdc-9bef-890f6c8db63a', 'CACHE_CERT_TTL_MS', '3600000', 'TTL de la caché de certificados (1 hora)', '2026-04-26 18:44:54.01142+00', '2026-04-26 18:44:54.01142+00');
+INSERT INTO public.sistema_config VALUES ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'PROVEEDOR_RUC', '', 'RUC del proveedor del sistema de facturación electrónica (Resolución NAC-DGERCGC26-00000027). Se incluye automáticamente en infoAdicional de todos los comprobantes.', '2026-04-26 18:44:54.01142+00', '2026-04-26 18:44:54.01142+00');
 
 
 --

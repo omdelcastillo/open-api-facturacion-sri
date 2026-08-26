@@ -172,6 +172,12 @@ export class XmlBuilderService {
       result.moneda = info.moneda;
     }
 
+    // Anexo 25 - Ficha Técnica v2.33: Campo placa para transporte comercial
+    // Debe ir entre moneda y pagos en el XML
+    if (info.placa) {
+      result.placa = info.placa;
+    }
+
     result.pagos = {
       pago: info.pagos.map((p) => {
         const pago: Record<string, any> = {

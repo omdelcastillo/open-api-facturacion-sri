@@ -7,6 +7,7 @@ import { SriSoapClient } from './services';
 import { SriRepositoryService } from './services/sri-repository.service';
 import { XmlStorageService } from './services/xml-storage.service';
 import { XmlBuilderService } from './services';
+import { DatabaseService } from '../../database';
 
 describe('SriService — Consultas', () => {
   let service: SriService;
@@ -95,6 +96,10 @@ describe('SriService — Consultas', () => {
         {
           provide: GuiaRemisionService,
           useValue: {},
+        },
+        {
+          provide: DatabaseService,
+          useValue: { query: jest.fn().mockResolvedValue({ rows: [] }) },
         },
       ],
     }).compile();

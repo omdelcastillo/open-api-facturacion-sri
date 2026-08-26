@@ -113,7 +113,7 @@ export class NotaCreditoService {
 
       this.logger.log(`Clave de acceso NC generada: ${claveAcceso}`);
 
-      const notaCredito = this.buildNotaCreditoFromDto(
+      const notaCredito = await this.buildNotaCreditoFromDto(
         dto,
         claveAcceso,
         secuencial,
@@ -307,9 +307,9 @@ export class NotaCreditoService {
         );
 
         // 5. Create info adicional
-        if (dto.infoAdicional && dto.infoAdicional.length > 0) {
+        if (notaCredito.infoAdicional && notaCredito.infoAdicional.length > 0) {
           await this.repository.createInfoAdicional(
-            dto.infoAdicional.map((info) => ({
+            notaCredito.infoAdicional.map((info) => ({
               comprobante_id: comprobante.id!,
               nombre: info.nombre,
               valor: info.valor,
@@ -340,13 +340,13 @@ export class NotaCreditoService {
   /**
    * Construye objeto NotaCredito desde el DTO
    */
-  private buildNotaCreditoFromDto(
+  private async buildNotaCreditoFromDto(
     dto: CreateNotaCreditoDto,
     claveAcceso: string,
     secuencial: string,
     ambiente: Ambiente,
     tipoEmision: TipoEmision,
-  ): NotaCredito {
+  ): Promise<NotaCredito> {
     const detalles = this.buildDetallesNotaCredito(dto.detalles);
     const { totalSinImpuestos, totalConImpuestos, valorModificacion } =
       this.calculateTotalesNotaCredito(detalles);
@@ -408,8 +408,11 @@ export class NotaCreditoService {
       infoAdicional.push(...dto.infoAdicional);
     }
 
-    if (infoAdicional.length > 0) {
-      notaCredito.infoAdicional = infoAdicional;
+    // Resolución NAC-DGERCGC26-00000027: RUC del proveedor del sistema
+    const infoAdicionalFinal = await this.base.injectProveedorRucInfoAdicional(infoAdicional);
+
+    if (infoAdicionalFinal.length > 0) {
+      notaCredito.infoAdicional = infoAdicionalFinal;
     }
 
     return notaCredito;

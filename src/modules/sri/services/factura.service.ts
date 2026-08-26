@@ -116,7 +116,7 @@ export class FacturaService {
         tipoEmision,
       });
 
-      const factura = this.buildFacturaFromDto(
+      const factura = await this.buildFacturaFromDto(
         dto,
         claveAcceso,
         secuencial,
@@ -237,7 +237,7 @@ export class FacturaService {
   /**
    * Genera XML preview de factura sin firmar ni enviar
    */
-  generarXmlPreview(dto: CreateFacturaDto): string {
+  async generarXmlPreview(dto: CreateFacturaDto): Promise<string> {
     if (!dto.secuencial) {
       throw new BadRequestException(
         'Para preview, el secuencial es obligatorio',
@@ -266,7 +266,7 @@ export class FacturaService {
       tipoEmision,
     });
 
-    const factura = this.buildFacturaFromDto(
+    const factura = await this.buildFacturaFromDto(
       dto,
       claveAcceso,
       secuencial,
@@ -312,7 +312,7 @@ export class FacturaService {
       tipoEmision,
     });
 
-    const factura = this.buildFacturaFromDto(
+    const factura = await this.buildFacturaFromDto(
       dto,
       claveAcceso,
       secuencial,
@@ -491,9 +491,9 @@ export class FacturaService {
       );
 
       // 6. Create info adicional
-      if (dto.infoAdicional && dto.infoAdicional.length > 0) {
+      if (factura.infoAdicional && factura.infoAdicional.length > 0) {
         await this.repository.createInfoAdicional(
-          dto.infoAdicional.map((info) => ({
+          factura.infoAdicional.map((info) => ({
             comprobante_id: comprobante.id!,
             nombre: info.nombre,
             valor: info.valor,
@@ -523,13 +523,13 @@ export class FacturaService {
   /**
    * Construye objeto Factura a partir del DTO
    */
-  private buildFacturaFromDto(
+  private async buildFacturaFromDto(
     dto: CreateFacturaDto,
     claveAcceso: string,
     secuencial: string,
     ambiente: Ambiente,
     tipoEmision: TipoEmision,
-  ): Factura {
+  ): Promise<Factura> {
     const detalles = this.buildDetalles(dto.detalles);
     const {
       totalSinImpuestos,
@@ -602,8 +602,11 @@ export class FacturaService {
       infoAdicional.push(...dto.infoAdicional);
     }
 
-    if (infoAdicional.length > 0) {
-      factura.infoAdicional = infoAdicional;
+    // Resolución NAC-DGERCGC26-00000027: RUC del proveedor del sistema
+    const infoAdicionalFinal = await this.base.injectProveedorRucInfoAdicional(infoAdicional);
+
+    if (infoAdicionalFinal.length > 0) {
+      factura.infoAdicional = infoAdicionalFinal;
     }
 
     return factura;

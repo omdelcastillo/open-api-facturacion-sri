@@ -5,6 +5,7 @@ import { SriService } from './sri.service';
 import { SriSoapClient, FacturaService, NotaCreditoService, NotaDebitoService, RetencionService, GuiaRemisionService, XmlBuilderService } from './services';
 import { SriRepositoryService } from './services/sri-repository.service';
 import { XmlStorageService } from './services/xml-storage.service';
+import { DatabaseService } from '../../database';
 import { CreateFacturaDto } from './dto';
 import { TipoIdentificacion, FormaPago } from './constants';
 
@@ -87,6 +88,7 @@ describe('SriService — Emisión Factura', () => {
         },
         { provide: XmlBuilderService, useValue: { parseXml: jest.fn() } },
         { provide: 'BullQueue_sri-emision', useValue: emisionQueue },
+        { provide: DatabaseService, useValue: { query: jest.fn().mockResolvedValue({ rows: [] }) } },
       ],
     }).compile();
 
@@ -135,12 +137,33 @@ describe('SriService — Emisión Factura', () => {
   });
 
   // ==========================================
+  // U-SRI-EMI-02b: Default (undefined) → modo síncrono (transmisión inmediata)
+  // ==========================================
+  it('U-SRI-EMI-02b: SRI_EMISION_ASYNC=undefined → delega a FacturaService (default síncrono)', async () => {
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'test';
+      return undefined;
+    });
+    facturaService.emitirFactura.mockResolvedValue({
+      success: true,
+      claveAcceso: '0702202601092438363100110010010000000161245294013',
+      estado: 'AUTORIZADO',
+    } as any);
+
+    const result = await service.emitirFactura(createValidDto());
+
+    expect(facturaService.emitirFactura).toHaveBeenCalledWith(expect.any(Object));
+    expect(emisionQueue.add).not.toHaveBeenCalled();
+    expect((result as any).success).toBe(true);
+  });
+
+  // ==========================================
   // U-SRI-EMI-03: generarXmlPreview delega a FacturaService
   // ==========================================
-  it('U-SRI-EMI-03: generarXmlPreview delega a FacturaService', () => {
-    facturaService.generarXmlPreview.mockReturnValue('<factura>xml</factura>');
+  it('U-SRI-EMI-03: generarXmlPreview delega a FacturaService', async () => {
+    facturaService.generarXmlPreview.mockResolvedValue('<factura>xml</factura>');
 
-    const result = service.generarXmlPreview(createValidDto());
+    const result = await service.generarXmlPreview(createValidDto());
 
     expect(facturaService.generarXmlPreview).toHaveBeenCalled();
     expect(result).toBe('<factura>xml</factura>');

@@ -66,6 +66,18 @@ export class WebhooksService {
     );
   }
 
+  @OnEvent('comprobante.anulado')
+  async handleComprobanteAnulado(payload: any) {
+    this.logger.log(
+      `Evento comprobante.anulado recibido para ${payload.claveAcceso}`,
+    );
+    await this.emit(
+      'comprobante.anulado' as WebhookEvent,
+      payload,
+      payload.emisorId,
+    );
+  }
+
   // =====================
   // CRUD Operations
   // =====================

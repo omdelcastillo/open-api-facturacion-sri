@@ -114,7 +114,7 @@ export class GuiaRemisionService {
 
       this.logger.log(`Clave de acceso GR generada: ${claveAcceso}`);
 
-      const guiaRemision = this.buildGuiaRemisionFromDto(
+      const guiaRemision = await this.buildGuiaRemisionFromDto(
         dto,
         claveAcceso,
         secuencial,
@@ -298,9 +298,9 @@ export class GuiaRemisionService {
         );
 
         // 4. Create info adicional
-        if (dto.infoAdicional && dto.infoAdicional.length > 0) {
+        if (guiaRemision.infoAdicional && guiaRemision.infoAdicional.length > 0) {
           await this.repository.createInfoAdicional(
-            dto.infoAdicional.map((info) => ({
+            guiaRemision.infoAdicional.map((info) => ({
               comprobante_id: comprobante.id!,
               nombre: info.nombre,
               valor: info.valor,
@@ -331,13 +331,13 @@ export class GuiaRemisionService {
   /**
    * Construye objeto GuiaRemision desde el DTO
    */
-  private buildGuiaRemisionFromDto(
+  private async buildGuiaRemisionFromDto(
     dto: CreateGuiaRemisionDto,
     claveAcceso: string,
     secuencial: string,
     ambiente: Ambiente,
     tipoEmision: TipoEmision,
-  ): GuiaRemision {
+  ): Promise<GuiaRemision> {
     const infoTributaria: InfoTributaria = {
       ambiente,
       tipoEmision,
@@ -400,8 +400,17 @@ export class GuiaRemisionService {
     };
 
     // Información adicional
+    const infoAdicional: any[] = [];
+
     if (dto.infoAdicional && dto.infoAdicional.length > 0) {
-      guiaRemision.infoAdicional = dto.infoAdicional;
+      infoAdicional.push(...dto.infoAdicional);
+    }
+
+    // Resolución NAC-DGERCGC26-00000027: RUC del proveedor del sistema
+    const infoAdicionalFinal = await this.base.injectProveedorRucInfoAdicional(infoAdicional);
+
+    if (infoAdicionalFinal.length > 0) {
+      guiaRemision.infoAdicional = infoAdicionalFinal;
     }
 
     return guiaRemision;

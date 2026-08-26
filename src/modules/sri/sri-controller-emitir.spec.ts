@@ -158,7 +158,7 @@ describe('SriController — Emisión Factura', () => {
   // U-CTRL-EMI-04: previewFactura exitoso
   // ==========================================
   it('U-CTRL-EMI-04: previewFactura valida RUC y retorna XML', async () => {
-    sriService.generarXmlPreview.mockReturnValue('<factura>preview</factura>');
+    sriService.generarXmlPreview.mockResolvedValue('<factura>preview</factura>');
 
     const result = await controller.previewFactura(createValidDto(), adminUser);
 

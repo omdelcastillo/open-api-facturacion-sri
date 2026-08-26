@@ -219,7 +219,7 @@ export class RideService {
 
       totales: totales.map((t) => ({
         codigo: t.codigo || '',
-        descripcion: this.getImpuestoDescripcion(t.codigo),
+        descripcion: this.getImpuestoDescripcionConTarifa(t.codigo, t.codigo_porcentaje),
         codigoPorcentaje: t.codigo_porcentaje || '',
         tarifa: parseFloat(t.tarifa) || 0,
         baseImponibleFormato: this.formatMoneda(
@@ -289,6 +289,27 @@ export class RideService {
       '5': 'IRB',
     };
     return descripciones[codigo] || 'IMP';
+  }
+
+  /**
+   * Descripción del impuesto con tarifa según código y códigoPorcentaje
+   */
+  private getImpuestoDescripcionConTarifa(codigo: string, codigoPorcentaje: string): string {
+    const baseDesc = this.getImpuestoDescripcion(codigo);
+    if (codigo === '2') {
+      const tarifas: Record<string, string> = {
+        '0': 'IVA 0%',
+        '2': 'IVA 12%',
+        '3': 'IVA 14%',
+        '4': 'IVA 15%',
+        '5': 'IVA 5%',
+        '6': 'No Objeto de Impuesto',
+        '7': 'Exento de IVA',
+        '8': 'IVA Diferenciado',
+      };
+      return tarifas[codigoPorcentaje] || baseDesc;
+    }
+    return baseDesc;
   }
 
   /**
