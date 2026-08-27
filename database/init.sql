@@ -768,6 +768,32 @@ COMMENT ON TABLE public.webhook_logs IS 'Logs de ejecución de webhooks';
 
 
 --
+-- Name: email_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.email_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    clave_acceso character varying(49),
+    receptor_email character varying(255) NOT NULL,
+    tipo_email character varying(50) DEFAULT 'ride'::character varying,
+    asunto character varying(255),
+    exitoso boolean DEFAULT false,
+    error text,
+    resend_id character varying(255),
+    intento integer DEFAULT 1,
+    tiempo_respuesta_ms integer,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE email_logs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.email_logs IS 'Logs de auditoría de emails enviados vía Resend API';
+
+
+--
 -- Name: anulacion_solicitudes; Type: TABLE; Schema: public; Owner: -
 --
 
