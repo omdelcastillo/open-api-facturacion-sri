@@ -798,4 +798,65 @@ export class SriRepositoryService {
     );
     return result || null;
   }
+
+  // ==========================================
+  // PDF METHODS
+  // ==========================================
+
+  /**
+   * Guarda el path del PDF del RIDE generado. Upsert por comprobante_id.
+   * Si ya existe un PDF para el comprobante, actualiza el path y metadata.
+   */
+  async savePdfRide(data: {
+    comprobante_id: string;
+    pdf_ride_path: string;
+    file_size_bytes: number;
+    generated_by: 'auto' | 'manual';
+    template_used: string;
+  }): Promise<void> {
+    await this.db.query(
+      `INSERT INTO comprobante_pdfs
+         (comprobante_id, pdf_ride_path, file_size_bytes, generated_by, template_used)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (comprobante_id) DO UPDATE SET
+         pdf_ride_path = EXCLUDED.pdf_ride_path,
+         file_size_bytes = EXCLUDED.file_size_bytes,
+         generated_by = EXCLUDED.generated_by,
+         template_used = EXCLUDED.template_used,
+         updated_at = NOW()`,
+      [
+        data.comprobante_id,
+        data.pdf_ride_path,
+        data.file_size_bytes,
+        data.generated_by,
+        data.template_used,
+      ],
+    );
+  }
+
+  /**
+   * Obtiene el path del PDF del RIDE guardado para un comprobante.
+   */
+  async findPdfRideByComprobanteId(
+    comprobanteId: string,
+  ): Promise<{
+    pdf_ride_path: string;
+    file_size_bytes: number | null;
+    generated_by: string;
+    template_used: string | null;
+    generated_at: Date;
+  } | null> {
+    const result = await this.db.queryOne<{
+      pdf_ride_path: string;
+      file_size_bytes: number | null;
+      generated_by: string;
+      template_used: string | null;
+      generated_at: Date;
+    }>(
+      `SELECT pdf_ride_path, file_size_bytes, generated_by, template_used, generated_at
+       FROM comprobante_pdfs WHERE comprobante_id = $1`,
+      [comprobanteId],
+    );
+    return result || null;
+  }
 }

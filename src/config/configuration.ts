@@ -164,6 +164,14 @@ export default () => ({
       removeOnComplete: parseInt(optionalEnv('QUEUE_EMAIL_KEEP_COMPLETED', '500'), 10),
       removeOnFail: parseInt(optionalEnv('QUEUE_EMAIL_KEEP_FAILED', '2000'), 10),
     },
+    rideStorage: {
+      enabled: optionalEnv('RIDE_STORAGE_ENABLED', 'true') === 'true',
+      tiposPermitidos: optionalEnv('RIDE_STORAGE_TIPOS', '01'),
+      attempts: parseInt(optionalEnv('QUEUE_RIDE_STORAGE_ATTEMPTS', '3'), 10),
+      backoffDelayMs: parseInt(optionalEnv('QUEUE_RIDE_STORAGE_BACKOFF_MS', '5000'), 10),
+      removeOnComplete: parseInt(optionalEnv('QUEUE_RIDE_STORAGE_KEEP_COMPLETED', '500'), 10),
+      removeOnFail: parseInt(optionalEnv('QUEUE_RIDE_STORAGE_KEEP_FAILED', '2000'), 10),
+    },
   },
 });
 

@@ -1941,6 +1941,81 @@ ALTER TABLE ONLY public.webhook_logs
 
 
 --
+-- Name: TABLE comprobante_pdfs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.comprobante_pdfs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    comprobante_id uuid NOT NULL,
+    pdf_ride_path character varying(500) NOT NULL,
+    file_size_bytes bigint,
+    generated_by character varying(50) DEFAULT 'auto'::character varying,
+    template_used character varying(255),
+    generated_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE comprobante_pdfs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.comprobante_pdfs IS 'Paths de los PDFs del RIDE generados para cada comprobante autorizado';
+
+
+--
+-- Name: COLUMN comprobante_pdfs.comprobante_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.comprobante_pdfs.comprobante_id IS 'FK a comprobantes.id';
+
+
+--
+-- Name: COLUMN comprobante_pdfs.pdf_ride_path; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.comprobante_pdfs.pdf_ride_path IS 'Path RELATIVO al directorio PDFs (ej: 1002127551001/2026/08/{claveAcceso}.pdf)';
+
+
+--
+-- Name: COLUMN comprobante_pdfs.generated_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.comprobante_pdfs.generated_by IS 'Origen del guardado: auto (vía evento) o manual (futuro endpoint)';
+
+
+--
+-- Name: comprobante_pdfs comprobante_pdfs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comprobante_pdfs
+    ADD CONSTRAINT comprobante_pdfs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: comprobante_pdfs comprobante_pdfs_comprobante_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comprobante_pdfs
+    ADD CONSTRAINT comprobante_pdfs_comprobante_id_key UNIQUE (comprobante_id);
+
+
+--
+-- Name: idx_comprobante_pdfs_path; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_comprobante_pdfs_path ON public.comprobante_pdfs USING btree (pdf_ride_path);
+
+
+--
+-- Name: comprobante_pdfs comprobante_pdfs_comprobante_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comprobante_pdfs
+    ADD CONSTRAINT comprobante_pdfs_comprobante_id_fkey FOREIGN KEY (comprobante_id) REFERENCES public.comprobantes(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 

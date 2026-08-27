@@ -26,6 +26,9 @@ import { PdfModule } from '../pdf/pdf.module';
 import { TemplateModule } from '../template/template.module';
 import { SriEmisionProcessor } from './processors/sri-emision.processor';
 import { RideService } from './services/ride.service';
+import { RideStorageService } from './services/ride-storage.service';
+import { RideStorageListener } from './services/ride-storage.listener';
+import { RideStorageProcessor } from './processors/ride-storage.processor';
 
 @Module({
   imports: [
@@ -34,6 +37,7 @@ import { RideService } from './services/ride.service';
     PdfModule,
     TemplateModule,
     BullModule.registerQueue({ name: 'sri-emision' }),
+    BullModule.registerQueue({ name: 'ride-storage' }),
   ],
   controllers: [SriController, CatalogosController],
   providers: [
@@ -55,6 +59,9 @@ import { RideService } from './services/ride.service';
     CatalogoValidatorService,
     SriEmisionProcessor,
     RideService,
+    RideStorageService,
+    RideStorageListener,
+    RideStorageProcessor,
   ],
   exports: [
     SriService,
@@ -72,6 +79,7 @@ import { RideService } from './services/ride.service';
     SriSoapFactoryService,
     CatalogoValidatorService,
     RideService,
+    RideStorageService,
   ],
 })
 export class SriModule {}
