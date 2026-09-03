@@ -479,4 +479,55 @@ describe('NotaCreditoService — Emisión', () => {
 
     expect(repository.createInfoAdicional).toHaveBeenCalled();
   });
+
+  // ==========================================
+  // U-NC-18: Emisión exitosa emite comprobante.autorizado
+  // ==========================================
+  it('U-NC-18: Emisión exitosa emite comprobante.autorizado con tipoComprobante=04', async () => {
+    repository.executeInTransaction.mockImplementation(async (fn: any) => fn(mockClient));
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: true,
+      claveAcceso: '0702202604092438363100110010010000000161245294014',
+      estado: 'AUTORIZADO',
+      fechaAutorizacion: '2026-02-07T12:00:00Z',
+      numeroAutorizacion: '1234567890',
+      mensajes: [],
+    });
+
+    await service.emitirNotaCredito(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.autorizado',
+      expect.objectContaining({
+        claveAcceso: '0702202604092438363100110010010000000161245294014',
+        tipoComprobante: '04',
+        secuencial: expect.any(String),
+        fechaAutorizacion: expect.any(String),
+        numeroAutorizacion: expect.any(String),
+      }),
+    );
+  });
+
+  // ==========================================
+  // U-NC-19: Comprobante rechazado emite comprobante.rechazado
+  // ==========================================
+  it('U-NC-19: Comprobante DEVUELTA emite comprobante.rechazado', async () => {
+    repository.executeInTransaction.mockImplementation(async (fn: any) => fn(mockClient));
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: false,
+      claveAcceso: '0702202604092438363100110010010000000161245294014',
+      estado: 'DEVUELTA',
+      mensajes: [{ identificador: '01', mensaje: 'Error de validación', tipo: 'ERROR' }],
+    });
+
+    await service.emitirNotaCredito(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.rechazado',
+      expect.objectContaining({
+        tipoComprobante: '04',
+        estado: 'DEVUELTA',
+      }),
+    );
+  });
 });

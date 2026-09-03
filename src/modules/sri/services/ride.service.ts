@@ -12,7 +12,14 @@ type AnyRecord = Record<string, any>;
 @Injectable()
 export class RideService {
   private readonly logger = new Logger(RideService.name);
-  private static readonly RIDE_TEMPLATE_ID = 'factura';
+  private static readonly RIDE_TEMPLATES: Record<string, string> = {
+    '01': 'factura',
+    '04': 'nota-credito',
+    '05': 'nota-debito',
+    '06': 'guia-remision',
+    '07': 'retencion',
+  };
+  private static readonly RIDE_TEMPLATE_DEFAULT = 'factura';
 
   constructor(
     private readonly pdfService: PdfService,
@@ -22,7 +29,8 @@ export class RideService {
   ) {}
 
   /**
-   * Genera el RIDE (PDF) de un comprobante por su clave de acceso
+   * Genera el RIDE (PDF) de un comprobante por su clave de acceso.
+   * Selecciona el template HTML según el tipo de comprobante (factura, NC, ND, etc).
    */
   async generarRide(claveAcceso: string): Promise<Buffer> {
     this.logger.log(`Generando RIDE para clave: ${claveAcceso}`);
@@ -68,9 +76,11 @@ export class RideService {
       );
     }
 
-    const templatePath = this.templateService.findTemplate(
-      RideService.RIDE_TEMPLATE_ID,
-    );
+    // Selección dinámica de template según tipo de comprobante
+    const templateId =
+      RideService.RIDE_TEMPLATES[comprobante.tipo_comprobante] ||
+      RideService.RIDE_TEMPLATE_DEFAULT;
+    const templatePath = this.templateService.findTemplate(templateId);
 
     return this.pdfService.generatePDF(
       rideData as AnyRecord,
@@ -241,7 +251,34 @@ export class RideService {
         nombre: ia.nombre || '',
         valor: ia.valor || '',
       })),
+
+      // ═══ Campos específicos de Nota de Crédito (tipo 04) ═══
+      ...(comprobante.tipo_comprobante === '04' && {
+        docModificadoTipo: comprobante.doc_modificado_tipo || '',
+        docModificadoTipoDescripcion: this.getTipoComprobanteDesc(comprobante.doc_modificado_tipo),
+        docModificadoNumero: comprobante.doc_modificado_numero || '',
+        docModificadoFecha: this.formatFecha(comprobante.doc_modificado_fecha),
+        motivo: comprobante.motivo || '',
+        valorModificacionFormato: this.formatMoneda(
+          parseFloat(comprobante.importe_total) || total,
+          moneda,
+        ),
+      }),
     };
+  }
+
+  /**
+   * Descripción legible del tipo de comprobante para NC
+   */
+  private getTipoComprobanteDesc(codigo: string): string {
+    const map: Record<string, string> = {
+      '01': 'Factura',
+      '04': 'Nota de Crédito',
+      '05': 'Nota de Débito',
+      '06': 'Guía de Remisión',
+      '07': 'Comprobante de Retención',
+    };
+    return map[codigo] || codigo;
   }
 
   /**

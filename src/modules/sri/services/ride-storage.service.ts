@@ -66,7 +66,7 @@ export class RideStorageService {
         pdf_ride_path: relativePath,
         file_size_bytes: pdfBuffer.length,
         generated_by: 'auto',
-        template_used: 'factura',
+        template_used: this.getTemplateIdForTipo(comprobante.tipo_comprobante),
       });
 
       return { path: relativePath, sizeBytes: pdfBuffer.length };
@@ -94,5 +94,19 @@ export class RideStorageService {
     const year = fecha.getFullYear().toString();
     const month = (fecha.getMonth() + 1).toString().padStart(2, '0');
     return join(ruc, year, month, `${claveAcceso}.pdf`);
+  }
+
+  /**
+   * Mapea el tipo de comprobante al id del template HTML usado para el RIDE.
+   */
+  private getTemplateIdForTipo(tipo: string): string {
+    const map: Record<string, string> = {
+      '01': 'factura',
+      '04': 'nota-credito',
+      '05': 'nota-debito',
+      '06': 'guia-remision',
+      '07': 'retencion',
+    };
+    return map[tipo] || 'factura';
   }
 }

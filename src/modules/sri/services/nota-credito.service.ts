@@ -166,6 +166,29 @@ export class NotaCreditoService {
         );
       }
 
+      // Emitir eventos para activar listeners (email, storage, webhooks, realtime)
+      if (resultado.success || resultado.estado === 'AUTORIZADO') {
+        this.eventEmitter.emit('comprobante.autorizado', {
+          emisorId: emisor?.id,
+          claveAcceso,
+          tipoComprobante: TipoComprobante.NOTA_CREDITO,
+          secuencial,
+          fechaAutorizacion: resultado.fechaAutorizacion,
+          numeroAutorizacion: resultado.numeroAutorizacion,
+        });
+      } else if (
+        resultado.estado === 'RECHAZADO' ||
+        resultado.estado === 'DEVUELTA'
+      ) {
+        this.eventEmitter.emit('comprobante.rechazado', {
+          emisorId: emisor?.id,
+          claveAcceso,
+          tipoComprobante: TipoComprobante.NOTA_CREDITO,
+          estado: resultado.estado,
+          mensajes: resultado.mensajes,
+        });
+      }
+
       return this.mapResultToNotaCreditoResponse(resultado);
     } catch (error) {
       this.logger.error(
