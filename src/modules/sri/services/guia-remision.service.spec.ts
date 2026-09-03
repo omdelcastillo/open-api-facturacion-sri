@@ -475,4 +475,53 @@ describe('GuiaRemisionService — Emisión', () => {
     // validarIdentificacion se llama para transportista + 2 destinatarios = 3 veces
     expect(base.validarIdentificacion).toHaveBeenCalledTimes(3);
   });
+
+  // ==========================================
+  // U-GR-17: Emisión exitosa emite comprobante.autorizado
+  // ==========================================
+  it('U-GR-17: Emisión exitosa emite comprobante.autorizado con tipoComprobante=06', async () => {
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: true,
+      claveAcceso: '0702202606092438363100110010010000000199999999018',
+      estado: 'AUTORIZADO',
+      fechaAutorizacion: '2026-02-07T12:00:00Z',
+      numeroAutorizacion: '1122334455',
+      mensajes: [],
+    });
+
+    await service.emitirGuiaRemision(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.autorizado',
+      expect.objectContaining({
+        claveAcceso: '0702202606092438363100110010010000000199999999018',
+        tipoComprobante: '06',
+        secuencial: expect.any(String),
+        fechaAutorizacion: expect.any(String),
+        numeroAutorizacion: expect.any(String),
+      }),
+    );
+  });
+
+  // ==========================================
+  // U-GR-18: Comprobante DEVUELTA emite comprobante.rechazado
+  // ==========================================
+  it('U-GR-18: Comprobante DEVUELTA emite comprobante.rechazado', async () => {
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: false,
+      claveAcceso: '0702202606092438363100110010010000000199999999018',
+      estado: 'DEVUELTA',
+      mensajes: [{ identificador: '01', mensaje: 'Error de validación', tipo: 'ERROR' }],
+    });
+
+    await service.emitirGuiaRemision(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.rechazado',
+      expect.objectContaining({
+        tipoComprobante: '06',
+        estado: 'DEVUELTA',
+      }),
+    );
+  });
 });

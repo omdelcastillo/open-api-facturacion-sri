@@ -106,10 +106,14 @@ export class EmailService {
       `SELECT c.receptor_email, c.receptor_razon_social, c.tipo_comprobante,
               c.secuencial, c.clave_acceso, c.numero_autorizacion,
               c.fecha_autorizacion, c.estado,
-              e.razon_social as razon_social_emisor
+              e.razon_social as razon_social_emisor,
+              gd.email_destinatario as guia_email_destinatario
        FROM comprobantes c
        LEFT JOIN emisores e ON c.emisor_id = e.id
-       WHERE c.clave_acceso = $1`,
+       LEFT JOIN guia_destinatarios gd ON gd.comprobante_id = c.id
+       WHERE c.clave_acceso = $1
+       ORDER BY gd.id ASC
+       LIMIT 1`,
       [claveAcceso],
     );
 
@@ -119,7 +123,13 @@ export class EmailService {
       );
     }
 
-    const to = overrideTo || comprobante.receptor_email;
+    // Para Guía de Remisión (tipo 06): si receptor_email es NULL, usar el del primer destinatario
+    const to =
+      overrideTo ||
+      comprobante.receptor_email ||
+      (comprobante.tipo_comprobante === '06'
+        ? (comprobante as any).guia_email_destinatario
+        : null);
     if (!to) {
       this.logger.warn(
         `No se puede enviar email: receptor_email vacío para ${claveAcceso}`,

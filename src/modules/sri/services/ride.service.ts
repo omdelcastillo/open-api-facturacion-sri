@@ -58,6 +58,44 @@ export class RideService {
         ? await this.repository.findMotivosNotaDebito(comprobante.id)
         : [];
 
+    // Cargar destinatarios y detalles solo para GR (tipo 06)
+    // Pre-aplanar en una lista mixta de headers + detalles para evitar loops anidados en Carbone
+    let destinatarios: any[] = [];
+    let itemsGuia: any[] = [];
+    if (comprobante.tipo_comprobante === '06') {
+      destinatarios = await this.repository.findDestinatariosGuiaByComprobanteId(
+        comprobante.id,
+      );
+      for (const dest of destinatarios) {
+        // Línea de encabezado del destinatario
+        const destId = dest.identificacion_destinatario || '';
+        const destNombre = dest.razon_social_destinatario || '';
+        const destMotivo = dest.motivo_traslado || '';
+        const destDir = dest.dir_destinatario || '';
+        itemsGuia.push({
+          codigoInterno: `DESTINATARIO: ${destId}`,
+          descripcion: destNombre,
+          cantidad: `Motivo: ${destMotivo}`,
+        });
+        // Línea con dirección del destinatario
+        itemsGuia.push({
+          codigoInterno: `Dirección:`,
+          descripcion: destDir,
+          cantidad: dest.ruta || '',
+        });
+        // Líneas de detalles: productos del destinatario
+        const detallesDest =
+          await this.repository.findDetallesGuiaByDestinatarioId(dest.id);
+        for (const det of detallesDest) {
+          itemsGuia.push({
+            codigoInterno: det.codigo_interno || '',
+            descripcion: `   » ${det.descripcion || ''}`,
+            cantidad: this.formatNumero(parseFloat(det.cantidad) || 0),
+          });
+        }
+      }
+    }
+
     const rideData = this.mapComprobanteToRideData(
       comprobante,
       detalles,
@@ -66,6 +104,8 @@ export class RideService {
       pagos,
       infoAdicional,
       motivos,
+      destinatarios,
+      itemsGuia,
     );
 
     // Generar barcode Code 128 como PNG y embeber como base64 data URI
@@ -112,6 +152,10 @@ export class RideService {
     infoAdicional: any[],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     motivos: any[] = [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    destinatarios: any[] = [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    itemsGuia: any[] = [],
   ): AnyRecord {
     const ambienteDesc =
       comprobante.ambiente === Ambiente.PRODUCCION
@@ -290,6 +334,27 @@ export class RideService {
           parseFloat(comprobante.importe_total) || total,
           moneda,
         ),
+      }),
+
+      // ═══ Campos específicos de Guía de Remisión (tipo 06) ═══
+      ...(comprobante.tipo_comprobante === '06' && {
+        placa: comprobante.placa || '',
+        dirPartida: comprobante.dir_partida || '',
+        fechaIniTransporte: this.formatFecha(comprobante.fecha_ini_transporte),
+        fechaFinTransporte: this.formatFecha(comprobante.fecha_fin_transporte),
+        razonSocialTransportista: comprobante.razon_social_transportista || '',
+        rucTransportista: comprobante.ruc_transportista || '',
+        tipoIdentificacionTransportistaDesc: this.getTipoIdentificacionDesc(comprobante.tipo_identificacion_transportista),
+        destinatarios: (destinatarios || []).map((d) => ({
+          identificacion: d.identificacion_destinatario || '',
+          razonSocial: d.razon_social_destinatario || '',
+          direccion: d.dir_destinatario || '',
+          motivoTraslado: d.motivo_traslado || '',
+          ruta: d.ruta || '',
+          email: d.email_destinatario || '',
+        })),
+        // Pre-aplanado: cada item es {tipo:'header'|'detalle', ...}
+        itemsGuia: itemsGuia || [],
       }),
     };
   }
