@@ -450,6 +450,21 @@ export class SriRepositoryService {
     return this.bulkInsert('motivos_nota_debito', motivos, client);
   }
 
+  /**
+   * Obtiene los motivos de una Nota de Débito (tabla relacionada).
+   * Usado por RideService para renderizar la tabla de motivos en el PDF.
+   */
+  async findMotivosNotaDebito(comprobanteId: string): Promise<any[]> {
+    const result = await this.db.query<any>(
+      `SELECT razon, valor
+       FROM motivos_nota_debito
+       WHERE comprobante_id = $1
+       ORDER BY id`,
+      [comprobanteId],
+    );
+    return result.rows;
+  }
+
   // ==========================================
   // TRANSACTION HELPER
   // ==========================================

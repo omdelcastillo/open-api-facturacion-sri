@@ -476,4 +476,53 @@ describe('NotaDebitoService — Emisión', () => {
     expect(callArg.total_sin_impuestos).toBe(15);
     expect(callArg.importe_total).toBe(16.8);
   });
+
+  // ==========================================
+  // U-ND-18: Emisión exitosa emite comprobante.autorizado
+  // ==========================================
+  it('U-ND-18: Emisión exitosa emite comprobante.autorizado con tipoComprobante=05', async () => {
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: true,
+      claveAcceso: '0702202605092438363100110010010000000177777777018',
+      estado: 'AUTORIZADO',
+      fechaAutorizacion: '2026-02-07T12:00:00Z',
+      numeroAutorizacion: '9876543210',
+      mensajes: [],
+    });
+
+    await service.emitirNotaDebito(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.autorizado',
+      expect.objectContaining({
+        claveAcceso: '0702202605092438363100110010010000000177777777018',
+        tipoComprobante: '05',
+        secuencial: expect.any(String),
+        fechaAutorizacion: expect.any(String),
+        numeroAutorizacion: expect.any(String),
+      }),
+    );
+  });
+
+  // ==========================================
+  // U-ND-19: Comprobante DEVUELTA emite comprobante.rechazado
+  // ==========================================
+  it('U-ND-19: Comprobante DEVUELTA emite comprobante.rechazado', async () => {
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: false,
+      claveAcceso: '0702202605092438363100110010010000000177777777018',
+      estado: 'DEVUELTA',
+      mensajes: [{ identificador: '01', mensaje: 'Error de validación', tipo: 'ERROR' }],
+    });
+
+    await service.emitirNotaDebito(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.rechazado',
+      expect.objectContaining({
+        tipoComprobante: '05',
+        estado: 'DEVUELTA',
+      }),
+    );
+  });
 });

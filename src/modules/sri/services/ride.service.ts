@@ -53,6 +53,10 @@ export class RideService {
       await this.repository.findPagosByComprobanteId(comprobante.id);
     const infoAdicional =
       await this.repository.findInfoAdicionalByComprobanteId(comprobante.id);
+    const motivos =
+      comprobante.tipo_comprobante === '05'
+        ? await this.repository.findMotivosNotaDebito(comprobante.id)
+        : [];
 
     const rideData = this.mapComprobanteToRideData(
       comprobante,
@@ -61,6 +65,7 @@ export class RideService {
       impuestos,
       pagos,
       infoAdicional,
+      motivos,
     );
 
     // Generar barcode Code 128 como PNG y embeber como base64 data URI
@@ -105,6 +110,8 @@ export class RideService {
     pagos: any[],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     infoAdicional: any[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    motivos: any[] = [],
   ): AnyRecord {
     const ambienteDesc =
       comprobante.ambiente === Ambiente.PRODUCCION
@@ -260,6 +267,26 @@ export class RideService {
         docModificadoFecha: this.formatFecha(comprobante.doc_modificado_fecha),
         motivo: comprobante.motivo || '',
         valorModificacionFormato: this.formatMoneda(
+          parseFloat(comprobante.importe_total) || total,
+          moneda,
+        ),
+      }),
+
+      // ═══ Campos específicos de Nota de Débito (tipo 05) ═══
+      ...(comprobante.tipo_comprobante === '05' && {
+        docModificadoTipo: comprobante.doc_modificado_tipo || '',
+        docModificadoTipoDescripcion: this.getTipoComprobanteDesc(comprobante.doc_modificado_tipo),
+        docModificadoNumero: comprobante.doc_modificado_numero || '',
+        docModificadoFecha: this.formatFecha(comprobante.doc_modificado_fecha),
+        motivos: (motivos || []).map((m) => ({
+          razon: m.razon || '',
+          valorFormato: this.formatMoneda(parseFloat(m.valor) || 0, moneda),
+        })),
+        totalSinImpuestosFormato: this.formatMoneda(
+          parseFloat(comprobante.total_sin_impuestos) || 0,
+          moneda,
+        ),
+        valorTotalFormato: this.formatMoneda(
           parseFloat(comprobante.importe_total) || total,
           moneda,
         ),

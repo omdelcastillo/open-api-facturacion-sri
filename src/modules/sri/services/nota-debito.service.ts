@@ -178,6 +178,29 @@ export class NotaDebitoService {
         );
       }
 
+      // Emitir eventos para activar listeners (email, storage, webhooks, realtime)
+      if (resultado.success || resultado.estado === 'AUTORIZADO') {
+        this.eventEmitter.emit('comprobante.autorizado', {
+          emisorId: emisor?.id,
+          claveAcceso,
+          tipoComprobante: TipoComprobante.NOTA_DEBITO,
+          secuencial,
+          fechaAutorizacion: resultado.fechaAutorizacion,
+          numeroAutorizacion: resultado.numeroAutorizacion,
+        });
+      } else if (
+        resultado.estado === 'RECHAZADO' ||
+        resultado.estado === 'DEVUELTA'
+      ) {
+        this.eventEmitter.emit('comprobante.rechazado', {
+          emisorId: emisor?.id,
+          claveAcceso,
+          tipoComprobante: TipoComprobante.NOTA_DEBITO,
+          estado: resultado.estado,
+          mensajes: resultado.mensajes,
+        });
+      }
+
       return this.mapResultToNotaDebitoResponse(resultado);
     } catch (error) {
       this.logger.error(
