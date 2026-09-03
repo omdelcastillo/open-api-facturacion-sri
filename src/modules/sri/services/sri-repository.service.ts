@@ -45,6 +45,8 @@ export class SriRepositoryService {
     'detalles_adicionales',
     'destinatarios_guia',
     'detalles_guia',
+    'guia_destinatarios',
+    'guia_detalles',
     'motivos_nota_debito',
   ]);
 
@@ -461,6 +463,39 @@ export class SriRepositoryService {
        WHERE comprobante_id = $1
        ORDER BY id`,
       [comprobanteId],
+    );
+    return result.rows;
+  }
+
+  /**
+   * Obtiene los destinatarios de una Guía de Remisión.
+   * Usado por RideService para renderizar destinatarios en el PDF.
+   */
+  async findDestinatariosGuiaByComprobanteId(comprobanteId: string): Promise<any[]> {
+    const result = await this.db.query<any>(
+      `SELECT id, tipo_identificacion_destinatario, identificacion_destinatario,
+              razon_social_destinatario, dir_destinatario, motivo_traslado,
+              doc_aduanero_unico, cod_estab_destino, ruta, cod_doc_sustento,
+              num_doc_sustento, fecha_emision_doc_sustento, num_aut_doc_sustento,
+              email_destinatario
+       FROM guia_destinatarios
+       WHERE comprobante_id = $1
+       ORDER BY id`,
+      [comprobanteId],
+    );
+    return result.rows;
+  }
+
+  /**
+   * Obtiene los detalles (productos) de un destinatario de Guía de Remisión.
+   */
+  async findDetallesGuiaByDestinatarioId(destinatarioId: string): Promise<any[]> {
+    const result = await this.db.query<any>(
+      `SELECT codigo_interno, codigo_adicional, descripcion, cantidad
+       FROM guia_detalles
+       WHERE destinatario_id = $1
+       ORDER BY id`,
+      [destinatarioId],
     );
     return result.rows;
   }
