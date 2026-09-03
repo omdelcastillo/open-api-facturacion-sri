@@ -500,6 +500,24 @@ export class SriRepositoryService {
     return result.rows;
   }
 
+  /**
+   * Obtiene las retenciones de un Comprobante de Retención.
+   * Usado por RideService para renderizar la tabla de retenciones en el PDF.
+   */
+  async findRetencionesByComprobanteId(comprobanteId: string): Promise<any[]> {
+    const result = await this.db.query<any>(
+      `SELECT codigo, codigo_retencion, base_imponible, porcentaje_retener,
+              valor_retenido, cod_doc_sustento, num_doc_sustento,
+              fecha_emision_doc_sustento, total_sin_impuestos, importe_total,
+              pago_loc_ext
+       FROM comprobante_retenciones
+       WHERE comprobante_id = $1
+       ORDER BY id`,
+      [comprobanteId],
+    );
+    return result.rows;
+  }
+
   // ==========================================
   // TRANSACTION HELPER
   // ==========================================

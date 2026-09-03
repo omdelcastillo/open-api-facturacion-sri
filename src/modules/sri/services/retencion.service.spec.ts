@@ -475,4 +475,53 @@ describe('RetencionService — Emisión', () => {
 
     expect(repository.createInfoAdicional).toHaveBeenCalled();
   });
+
+  // ==========================================
+  // U-RET-18: Emisión exitosa emite comprobante.autorizado con payload correcto
+  // ==========================================
+  it('U-RET-18: Emisión exitosa emite comprobante.autorizado con tipoComprobante=07', async () => {
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: true,
+      claveAcceso: '0702202607092438363100110010010000000199999999017',
+      estado: 'AUTORIZADO',
+      fechaAutorizacion: '2026-02-07T12:00:00Z',
+      numeroAutorizacion: '1234567890',
+      mensajes: [],
+    });
+
+    await service.emitirRetencion(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.autorizado',
+      expect.objectContaining({
+        claveAcceso: '0702202607092438363100110010010000000199999999017',
+        tipoComprobante: '07',
+        secuencial: expect.any(String),
+        fechaAutorizacion: expect.any(String),
+        numeroAutorizacion: expect.any(String),
+      }),
+    );
+  });
+
+  // ==========================================
+  // U-RET-19: Comprobante DEVUELTA emite comprobante.rechazado con payload correcto
+  // ==========================================
+  it('U-RET-19: Comprobante DEVUELTA emite comprobante.rechazado', async () => {
+    sriSoapClient.enviarYAutorizar.mockResolvedValue({
+      success: false,
+      claveAcceso: '0702202607092438363100110010010000000199999999017',
+      estado: 'DEVUELTA',
+      mensajes: [{ identificador: '01', mensaje: 'Error de validación', tipo: 'ERROR' }],
+    });
+
+    await service.emitirRetencion(createValidDto());
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'comprobante.rechazado',
+      expect.objectContaining({
+        tipoComprobante: '07',
+        estado: 'DEVUELTA',
+      }),
+    );
+  });
 });

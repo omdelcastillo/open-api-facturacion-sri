@@ -170,24 +170,26 @@ export class RetencionService {
         this.logger.warn('Emisor no encontrado en BD, retención no persistida');
       }
 
-      // Emit events for webhooks
-      if (resultado.success) {
+      // Emit events for activation of listeners (email, storage, webhooks, realtime)
+      if (resultado.success || resultado.estado === 'AUTORIZADO') {
         this.eventEmitter.emit('comprobante.autorizado', {
+          emisorId: emisor?.id,
           claveAcceso,
-          emisorRuc: dto.emisor.ruc,
           tipoComprobante: TipoComprobante.COMPROBANTE_RETENCION,
-          numeroAutorizacion: resultado.numeroAutorizacion,
+          secuencial,
           fechaAutorizacion: resultado.fechaAutorizacion,
-          timestamp: new Date(),
+          numeroAutorizacion: resultado.numeroAutorizacion,
         });
-      } else {
+      } else if (
+        resultado.estado === 'RECHAZADO' ||
+        resultado.estado === 'DEVUELTA'
+      ) {
         this.eventEmitter.emit('comprobante.rechazado', {
+          emisorId: emisor?.id,
           claveAcceso,
-          emisorRuc: dto.emisor.ruc,
           tipoComprobante: TipoComprobante.COMPROBANTE_RETENCION,
           estado: resultado.estado,
           mensajes: resultado.mensajes,
-          timestamp: new Date(),
         });
       }
 
@@ -245,29 +247,24 @@ export class RetencionService {
 
         // 2. Create retenciones in comprobante_retenciones table
         if (retencion.impuestos && retencion.impuestos.length > 0) {
-          for (const imp of retencion.impuestos) {
-            await client.query(
-              `INSERT INTO comprobante_retenciones 
-               (comprobante_id, codigo, codigo_retencion, base_imponible, porcentaje_retener, valor_retenido, 
-                cod_doc_sustento, num_doc_sustento, fecha_emision_doc_sustento, 
-                total_sin_impuestos, importe_total, pago_loc_ext)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-              [
-                comprobante.id,
-                imp.codigo,
-                imp.codigoRetencion,
-                imp.baseImponible,
-                imp.porcentajeRetener,
-                imp.valorRetenido,
-                imp.codDocSustento,
-                imp.numDocSustento,
-                imp.fechaEmisionDocSustento?.split('/').reverse().join('-'),
-                imp.totalSinImpuestos,
-                imp.importeTotal,
-                imp.pagoLocExt,
-              ],
-            );
-          }
+          const comprobanteId = comprobante.id as string;
+          await this.repository.createRetenciones(
+            retencion.impuestos.map((imp) => ({
+              comprobante_id: comprobanteId,
+              codigo: imp.codigo,
+              codigo_retencion: imp.codigoRetencion,
+              base_imponible: imp.baseImponible,
+              porcentaje_retener: imp.porcentajeRetener,
+              valor_retenido: imp.valorRetenido,
+              cod_doc_sustento: imp.codDocSustento,
+              num_doc_sustento: imp.numDocSustento,
+              fecha_emision_doc_sustento: imp.fechaEmisionDocSustento?.split('/').reverse().join('-'),
+              total_sin_impuestos: imp.totalSinImpuestos,
+              importe_total: imp.importeTotal,
+              pago_loc_ext: imp.pagoLocExt || '01',
+            })),
+            client,
+          );
         }
 
         // 3. Save signed XML always (needed for retry), authorized only if authorized

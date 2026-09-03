@@ -96,6 +96,14 @@ export class RideService {
       }
     }
 
+    // Cargar retenciones solo para Comprobante de Retención (tipo 07)
+    let retenciones: any[] = [];
+    if (comprobante.tipo_comprobante === '07') {
+      retenciones = await this.repository.findRetencionesByComprobanteId(
+        comprobante.id,
+      );
+    }
+
     const rideData = this.mapComprobanteToRideData(
       comprobante,
       detalles,
@@ -106,6 +114,7 @@ export class RideService {
       motivos,
       destinatarios,
       itemsGuia,
+      retenciones,
     );
 
     // Generar barcode Code 128 como PNG y embeber como base64 data URI
@@ -156,6 +165,8 @@ export class RideService {
     destinatarios: any[] = [],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     itemsGuia: any[] = [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    retenciones: any[] = [],
   ): AnyRecord {
     const ambienteDesc =
       comprobante.ambiente === Ambiente.PRODUCCION
@@ -344,7 +355,7 @@ export class RideService {
         fechaFinTransporte: this.formatFecha(comprobante.fecha_fin_transporte),
         razonSocialTransportista: comprobante.razon_social_transportista || '',
         rucTransportista: comprobante.ruc_transportista || '',
-        tipoIdentificacionTransportistaDesc: this.getTipoIdentificacionDesc(comprobante.tipo_identificacion_transportista),
+        tipoIdentificacionTransportistaDesc: this.getTipoComprobanteDesc(comprobante.tipo_identificacion_transportista),
         destinatarios: (destinatarios || []).map((d) => ({
           identificacion: d.identificacion_destinatario || '',
           razonSocial: d.razon_social_destinatario || '',
@@ -355,6 +366,30 @@ export class RideService {
         })),
         // Pre-aplanado: cada item es {tipo:'header'|'detalle', ...}
         itemsGuia: itemsGuia || [],
+      }),
+
+      // ═══ Campos específicos de Comprobante de Retención (tipo 07) ═══
+      ...(comprobante.tipo_comprobante === '07' && {
+        periodoFiscal: comprobante.periodo_fiscal || '',
+        identificacionSujetoRetenido: comprobante.receptor_identificacion || '',
+        razonSocialSujetoRetenido: comprobante.receptor_razon_social || '',
+        tipoIdentificacionSujetoRetenidoDesc: this.getTipoIdentificacionDesc(comprobante.receptor_tipo_identificacion),
+        direccionSujetoRetenido: comprobante.receptor_direccion || '',
+        emailSujetoRetenido: comprobante.receptor_email || '',
+        retenciones: (retenciones || []).map((r) => ({
+          codigo: r.codigo || '',
+          tipoDesc: r.codigo === '1' ? 'RENTA' : (r.codigo === '2' ? 'IVA' : 'ISD'),
+          codigoRetencion: r.codigo_retencion || '',
+          numDocSustento: r.num_doc_sustento || '',
+          fechaEmisionDocSustento: this.formatFecha(r.fecha_emision_doc_sustento),
+          baseImponibleFormato: this.formatMoneda(parseFloat(r.base_imponible) || 0, moneda),
+          porcentajeRetener: parseFloat(r.porcentaje_retener) || 0,
+          valorRetenidoFormato: this.formatMoneda(parseFloat(r.valor_retenido) || 0, moneda),
+        })),
+        totalRetenidoFormato: this.formatMoneda(
+          (retenciones || []).reduce((sum, r) => sum + (parseFloat(r.valor_retenido) || 0), 0),
+          moneda,
+        ),
       }),
     };
   }
